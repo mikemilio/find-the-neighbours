@@ -17,3 +17,5 @@ The game's messages and button values are written in Greek. The countries' names
 are in English.
 
 The TwemojiMozilla.ttf file is essential for showing the flags in the game.
+
+The game is played by running the html file on a local server (e.g. with Live Srever installed in Visual Studio Code) 
