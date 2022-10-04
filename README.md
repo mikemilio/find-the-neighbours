@@ -12,3 +12,8 @@ of the real neighbours. If the number of wrongly
 chosen countries equals the number of the real neighbours, the round is lost
 and a new country is randomly selected for playing.
 The game finishes after 10 rounds have been played.
+
+The game's messages and button values are written in Greek. The countries' names 
+are in English.
+
+The TwemojiMozilla.ttf file is essential for showing the flags in the game.
