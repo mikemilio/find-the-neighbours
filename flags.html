@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Βρες τους γείτονες</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+    <script src="countries.js">
+    </script>
+
+    <script defer>
+
+        // πίνακας που περιέχει τις χώρες με την μορφή allCountries['GRE'] = { code2: "GR", name: "Greece"}
+        const allCountries = new Array();
+        for (let obj of countryObjects) {
+            allCountries[obj.code3] = {"code2":`${obj.code}`, "name":`${obj.name}`};
+        }
+
+        // Η κλάση του παιχνιδιού. Τοποθετείται εδώ για να αρχικοποιηθεί η καθολική μεταβλητή theGame 
+        class Game {
+            constructor(round, score) {
+                this.round = round;
+                this.score = score;
+            } 
+        }
+         
+        // καθολικές μεταβλητές        
+        const urlCountryCode = 'https://restcountries.com/v2/alpha/';
+        let countriesPlayed = [];
+        let validNeighbours = [];
+        let neighbourCounter = -1;
+        let neighboursCodesArray = [];
+        let invalidClickedCounter = 0;
+        let validClickedCounter = 0;
+        let gameOver = false;
+        let theGame = new Game(1, 0);
+        let theCountryObjects = countryObjects;
+
+        // ανανεώνει το σκορ και το εμφανίζει στο sidebar
+        Game.prototype.updateScore = function (update) {
+            if (update == "increase") {
+                this.score += 5;
+            } else if (update == "decrease") {
+                this.score -= 3;
+            } else if (update == "new game") {
+                this.score = 0;
+            }
+            document.querySelector("#score-count").innerHTML = this.score;
+        } 
+
+        // ανανεώνει τον αριθμό γύρων και τον εμφανίζει στο sidebar
+        Game.prototype.updateRound = function (gameState) {
+            if (gameState == "new game") {
+                this.round = 1;
+            } else if (gameState == "next") {
+                this.round += 1;
+            }
+            document.querySelector("#round-count").innerHTML = this.round;
+        } 
+
+        // λαμβάνει από τον server την χώρα, τους γείτονες της (αληθινούς και μη), και τα εμφανίζει στην οθόνη 
+        Game.prototype.initializeCountries = function() {
+            // αρχικοποίηση παραμέτρων
+            document.querySelector("#btn-next-round").disabled = true;
+            removeEventListeners();
+            validNeighbours = [];
+            neighboursCodesArray = [];
+            validClickedCounter = 0;
+            invalidClickedCounter = 0;
+            let countryPosition = 0;
+            let nameCode3 = "";
+            // συνάρτηση κλήσης της χώρας, των γειτόνων της, και εμφάνισής τους στο game panel
+            fetchCountry();
+            function fetchCountry () {
+                const playingCountry = new PlayingCountry(...selectCodeAndName(countryPosition));
+                // const playingCountry = new PlayingCountry("LA", "Lao People's Democratic Republic (the)");
+                console.log("Now playing:",playingCountry.name);
+                //κλήση χώρας
+                fetch(urlCountryCode + playingCountry.code)
+                // fetch(urlCountryCode + "LA")
+                .then((response) => {
+                    if (response.status === 200) {
+                        return response.json();
+                    } else {
+                        throw new Error(response.status);
+                    }
+                })
+                //εύρεση αληθινών γειτόνων και τοποθέτησή τους σε array
+                .then((data) => { 
+                    const theBorders = data.borders;
+                    const theCountries = [];
+                    if (theBorders) {
+                        if (theBorders.length > 0) {
+                            //προχωράει στην εμφάνιση της χώρας στο πάνελ και στην δημιουργία πίνακα με τους αληθινούς γείτονες μόνο αν η χώρα 
+                            //δεν έχει ξαναπαίξει, αλλιώς ξανακαλεί την fetchCountry() και διαλέγει άλλη χώρα
+                            if ( countriesPlayed.indexOf(playingCountry.name) == -1 ) {
+                                nameCode3 = data.alpha3Code;
+                                playingCountry.createMyCountry();
+                                theBorders.forEach((item) => {
+                                    theCountries.push(item);
+                                    validNeighbours.push(item);
+                                })
+                                // λίστα χωρών που έχουν παίξει
+                                countriesPlayed.push(playingCountry.name);
+                                console.log("Countries played so far:",countriesPlayed);
+                            } else {
+                                countryPosition +=1;
+                                fetchCountry();
+                            }
+                        } else {
+                            countryPosition +=1;
+                            fetchCountry();
+                        }
+                    } else {
+                        countryPosition +=1;
+                        fetchCountry(); 
+                    }
+                    Promise.all(theCountries)
+                    .then((allCountriesNames) => { 
+                        console.log("Valid neighbours:",allCountriesNames);
+                        //δημιουργία array που θα περιλαμβάνει όλους τους γείτονες (αληθινούς και μη)
+                        // εισαγωγή αληθινών γειτόνων
+                        if (allCountriesNames.length > 0) { // για να μην εκτελεστεί ο κώδικας όταν επιλεγεί χώρα χωρίς σύνορα ή χώρα που έχει ξαναπαίξει 
+                            for (let item of allCountriesNames) {
+                                neighboursCodesArray.push(item);
+                            }
+                            // εισαγωγή μη αληθινών γειτόνων
+                            theCountryObjects = shuffleArray(theCountryObjects);
+                            let neighbourPosition = -1; 
+                            while ( neighboursCodesArray.length < (allCountriesNames.length *3 ) ) { //αριθμός γειτόνων τριπλάσιος του πραγματικού
+                                neighbourPosition += 1;
+                                if ( neighboursCodesArray.indexOf( theCountryObjects[neighbourPosition].code3 ) >= 0 || theCountryObjects[neighbourPosition].code3 == nameCode3 ) {
+                                    continue;
+                                } else {
+                                    neighboursCodesArray.push(theCountryObjects[neighbourPosition].code3);
+                                }
+                            }
+                            // εισαγωγή γειτόνων στο neighbours panel
+                            neighboursCodesArray = shuffleArray(neighboursCodesArray);
+                            console.log("All neighbours:",neighboursCodesArray);
+                            document.querySelector("#neighbours-panel").textContent = ''; // καθαρισμός πάνελ από τους προηγούμενους γείτονες
+                            neighbourCounter = -1;
+                            for ( item of neighboursCodesArray ) {
+                                neighbourCounter += 1;
+                                const theNeighbour = new Neighbour(neighbourCounter, allCountries[item].code2, allCountries[item].name);
+                                theNeighbour.createNeighbour();
+                            
+                            }
+                            attachEventListeners();
+                        }
+                    })
+                    .catch((error) => {console.log(error);});
+                })
+                
+            }
+        }
+        
+        // δημιουργεί το γκρι στοιχείο και το μήνυμα που επικαλύπτουν τους γείτονες στο πέρας του γύρου και του παιχνιδιού
+        Game.prototype.roundWonLostFinished = function (result) {
+            const btnNextRound = document.querySelector("#btn-next-round");
+            const neighboursPanel = document.querySelector("#neighbours-panel");
+            const overlay = document.createElement("div");
+            overlay.setAttribute("id", "overlay");
+            neighboursPanel.appendChild(overlay);
+            const messageRound = document.createElement("p");
+            messageRound.setAttribute("id", "round-message");
+            overlay.appendChild(messageRound);
+
+            if (result == "won") {
+                messageRound.innerHTML = "Τους βρήκατε όλους!";
+                btnNextRound.disabled = false;
+                if (this.round == 10) {
+                    this.gameOverMessage(overlay);
+                    btnNextRound.disabled = true;
+                    gameOver = true;
+                }
+            } else if (result == "lost") {
+                overlay.style.color = "darkred";
+                messageRound.innerHTML = "Κρίμα, χάσατε!";
+                btnNextRound.disabled = false;
+                if (this.round == 10) {
+                    this.gameOverMessage(overlay);
+                    btnNextRound.disabled = true;
+                    gameOver = true;
+                }
+            }
+        }
+
+         // προσθέτει στο γκρι πάνελ μήνυμα τέλους παιχνιδιού
+        Game.prototype.gameOverMessage = function(overlay) {
+            const messageGame = document.createElement("p")
+            messageGame.setAttribute("id", "game-message");
+            messageGame.innerHTML = "ΤΕΛΟΣ ΠΑΙΧΝΙΔΙΟΥ.";
+            overlay.appendChild(messageGame);
+        }
+
+        // κλάση χώρας που παίζει
+        class PlayingCountry {
+            constructor (code, name) {
+                this.code=code;
+                this.name=name;
+            }
+        }
+
+        // εισάγει την σημαία και το όνομα της χώρας που παίζει στο #my-country
+        PlayingCountry.prototype.createMyCountry = function() {
+            const myCountryFlag = document.querySelector("#my-country-flag");
+            myCountryFlag.innerHTML = country2emoji2(this.code);
+            const myCountryName = document.querySelector("#my-country-name"); 
+            myCountryName.innerHTML = this.name;
+        }
+
+        //κλάση γείτονα 
+        class Neighbour {
+            constructor (id, code, name) {
+                this.id = id;
+                this.code=code;
+                this.name=name;
+                this.element = document.querySelector(`#id${id}`);
+            }
+        }
+
+        // εισάγει μία χώρα-γείτονα στο neighbours panel
+        Neighbour.prototype.createNeighbour = function () {
+            const neighboursPanel = document.querySelector("#neighbours-panel");
+            const neighbourDiv = document.createElement("div");
+            neighbourDiv.setAttribute("class", "neighbour");
+            neighbourDiv.setAttribute("id", `id${neighbourCounter}`);
+            neighbourDiv.style.borderRadius = "5px";
+            neighboursPanel.appendChild(neighbourDiv);
+
+            const flagDiv = document.createElement("div");
+            flagDiv.setAttribute("id", "neighbour-flag");
+            flagDiv.innerHTML = country2emoji2(this.code);
+            neighbourDiv.appendChild(flagDiv);
+
+            const neighbourName = document.createElement("div");
+            neighbourName.setAttribute("id", "neighbour-name");
+            neighbourName.innerHTML = this.name;
+            neighbourDiv.appendChild(neighbourName);
+        }
+
+         // αρχικοποίηση παραμέτρων όταν επιλέγεται το κουμπί "Νέο Παιχνίδι"
+         function initializeParameters () {
+            countriesPlayed = [];
+            validNeighbours = [];
+            neighboursCodesArray = [];
+            invalidClickedCounter = 0;
+            validClickedCounter = 0;
+            theGame.updateRound("new game");
+            theGame.updateScore("new game");
+            theCountryObjects = shuffleArray(theCountryObjects);
+            document.querySelector("#btn-next-round").disabled = true;
+        }
+
+        // εισάγει Event Listeners στα divs των γειτόνων 
+        function attachEventListeners () {
+            const neighboursNodes = document.querySelectorAll(".neighbour");
+            for(let i = 0 ; i < neighboursNodes.length ; i++) {
+                neighboursNodes[i].addEventListener('click', handleNeighbours)
+            }
+        }
+
+        // αφαιρεί Event Listeners από τα divs των γειτόνων
+        function removeEventListeners () {
+            const neighboursNodes = document.querySelectorAll(".neighbour");
+            for(let i = 0 ; i < neighboursNodes.length ; i++) {
+                neighboursNodes[i].removeEventListener('click', handleNeighbours);
+            }
+        }
+
+        // εισάγει τις κατάλληλες κλάσεις στους γείτονες όταν επιλέγονται και ανανεώνει το σκορ
+        function handleNeighbours() {
+            // εκτέλεση μόνο εάν δεν έχει πατηθεί καμμία φορά
+            if ( this.className.split(" ").indexOf("was-clicked") < 0 ) {
+                this.classList.add("was-clicked");
+                //εύρεση θέσης επιλεγμένου στοιχείου-χώρας με βάση το id του
+                let idString = this.id;
+                idString = idString.substr(2);
+                const idInt = parseInt(idString);
+                // έλεγχος αν η χώρα υπάρχει στους αληθινούς γείτονες (ή όχι) και επισύναψη αντίστοιχης κλασης CSS 
+                if ( validNeighbours.indexOf(neighboursCodesArray[idInt]) >=0 ) {
+                    this.classList.add("neighbour-is-valid");
+                    theGame.updateScore("increase");
+                    validClickedCounter += 1;
+                    handleProgressBar(validClickedCounter);
+                    if (validClickedCounter == validNeighbours.length) {
+                        theGame.roundWonLostFinished("won");
+                    }
+                } else {
+                    this.classList.add("neighbour-is-invalid");
+                    invalidClickedCounter += 1;
+                    theGame.updateScore("decrease");
+                    if (invalidClickedCounter == validNeighbours.length) {
+                        theGame.roundWonLostFinished("lost");
+                    }
+                }
+            }   
+        }
+
+        // χειρίζεται το γέμισμα του progress bar
+        function handleProgressBar(validCounter) {
+            const fraction = 100 / validNeighbours.length;
+            document.querySelector("#progress").value = fraction * validCounter;  
+        }
+
+        // επιστρέφει array με διψήφιο κώδικα και όνομα χώρας 
+        function selectCodeAndName (pos) {
+            return [allCountries[theCountryObjects[pos].code3].code2, 
+            allCountries[theCountryObjects[pos].code3].name];
+        }
+
+        // ρωτά τον χρήστη όταν πατάει το κουμπί νέου παινχιδιού
+        function promtpUser() {
+            const confirmation = confirm("Σίγουρα; Θα χάσετε όλο σας το σκορ!");
+            if (confirmation == true) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+
+            theCountryObjects = shuffleArray(theCountryObjects);
+            theGame.initializeCountries();
+            document.querySelector("#btn-next-round").disabled = true;
+
+            //event listener to new game button
+            document.querySelector("#btn-new-game").addEventListener("click", () => {
+                // μετά το τέλος του παιχνιδιού, δεν εμφανίζεται prompt στο πάτημα του btn-new-game
+                if (gameOver == true) {
+                    gameOver = false;
+                    initializeParameters();
+                    theGame.initializeCountries();
+                } else {
+                    if(promtpUser() == true) {
+                        initializeParameters();
+                        theGame.initializeCountries();
+                    }
+                }
+                //μηδενισμός μπάρας προόδου
+                document.querySelector("#progress").value = 0;
+            })
+
+            //event listener to next round button
+            document.querySelector("#btn-next-round").addEventListener("click", () => {
+                theCountryObjects = shuffleArray(theCountryObjects);
+                theGame.updateRound("next");
+                document.querySelector("#progress").value = 0;
+                theGame.initializeCountries();
+            })
+        });
+
+    </script>
+    
+</head>
+
+<body>
+
+    <div class="game-panel">
+        <!-- 
+                Γράψτε εδώ τον κώδικα HTML που χρειάζεστε για το παιχνίδι.
+                Κάποια από τα στοιχεία (elements) της σελίδας προστίθενται και
+                αφαιρούνται δυναμικά, μέσα από τη JavaScript, π.χ. οι σημαίες 
+                των γειτονικών χωρών κ.ά.
+            -->
+        <div id="sidebar">
+            <div id="sidebar-title">Βρες τους γείτονες</div> 
+            <div id="score">
+                <div id="round-title"><span>Γύρος</span><span id="round-count">1</span></div>
+                <div id="score-title"><span>Σκορ</span><span id="score-count">0</span></div> 
+            </div>
+            <div id="next-round-panel">
+                <button id="btn-next-round"> Επόμενη χώρα </button>
+                <button id="btn-new-game"> Νέο παιχνίδι </button>
+            </div>
+        </div>
+
+        <div id="my-country">
+            <div id="my-country-flag"></div>
+            <div id="my-country-name"></div>
+        </div>
+
+        <progress id="progress" value="0" max="100"></progress>
+
+        <div id="neighbours-panel"></div>
+    </div>
+
+</body>
+
+    <script>
+    //Το παρακάτω αφορά μόνο τους χρήστες macOS.
+    if (navigator.appVersion.indexOf("Macintosh")>0){
+    document.body.style.fontFamily = '"Open Sans"';
+    }
+    </script>
+
+</html>
