@@ -16,6 +16,8 @@ The game finishes after 10 rounds have been played.
 The game's messages and button values are written in Greek. The countries' names 
 are in English.
 
+An effort has been made so that the application be web-responsive.
+
 The TwemojiMozilla.ttf file is essential for showing the flags in the game.
 
 The game is played by double-clicking on the html file (after downloading all of the files in your device).
