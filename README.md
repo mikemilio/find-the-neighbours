@@ -18,4 +18,4 @@ are in English.
 
 The TwemojiMozilla.ttf file is essential for showing the flags in the game.
 
-The game is played by double-clicking the html file.
+The game is played by double-clicking on the html file (after downloading all of the files in your device).
