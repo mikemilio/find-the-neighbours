@@ -2,8 +2,8 @@
 A game developed with HTML, CSS and JavaScript, in the context of the final project of
 the e-learning course "CS3.2: Advanced web development" on mathesis.cup.gr
 
-In this game the player needs to select the flag of the countries which
-have common borders with the given country (i.e. is a neighbour). For every 
+In this game the player needs to select the flags of the countries that
+have common borders (neighbouring) with the given country. For every 
 correct neighbour the player wins 5 points. For every wrong neighbour the player 
 loses 3 points. 
 
@@ -20,4 +20,4 @@ An effort has been made so that the application be web-responsive.
 
 The TwemojiMozilla.ttf file is essential for showing the flags in the game.
 
-The game is played by double-clicking on the html file (after downloading all of the files in your device).
+The game is played by double-clicking on the html file (after downloading all of the files in a folder in your device).
